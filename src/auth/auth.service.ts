@@ -10,6 +10,7 @@ import { RegisterResponseDto } from './dto/register-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { ApiResponseDto } from 'src/common/dto/api-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -48,11 +49,16 @@ export class AuthService {
       },
     });
 
-    const response: RegisterResponseDto = {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
+    const response: ApiResponseDto<RegisterResponseDto> = {
+      status: 'success',
+      code: 201,
+      message: null,
+      data: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
     };
 
     return response;
@@ -98,14 +104,19 @@ export class AuthService {
       data: { refreshToken: hashedRefreshToken },
     });
 
-    const response: LoginResponseDto = {
-      accessToken,
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+    const response: ApiResponseDto<LoginResponseDto> = {
+      status: 'success',
+      code: 200,
+      message: null,
+      data: {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
       },
     };
 
