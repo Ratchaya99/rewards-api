@@ -8,10 +8,15 @@ import { RegisterDto } from './dto/register.dto';
 import * as bcrypt from 'bcrypt';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { LoginDto } from './dto/login.dto';
+import { JwtService } from '@nestjs/jwt';
+import { LoginResponseDto } from './dto/login-response.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async register(registerDto: RegisterDto) {
     const existingUser = await this.prismaService.user.findUnique({
@@ -56,6 +61,9 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const user = await this.prismaService.user.findUnique({
       where: { email: loginDto.email },
+      include: {
+        role: true,
+      },
     });
 
     if (!user) {
@@ -71,11 +79,34 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const response: RegisterResponseDto = {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
+    const payload = { sub: user.id, email: user.email, role: user.role.name };
+
+    const accessToken = await this.jwtService.signAsync(payload, {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    });
+
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '7d',
+    });
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    await this.prismaService.user.update({
+      where: { id: user.id },
+      data: { refreshToken: hashedRefreshToken },
+    });
+
+    const response: LoginResponseDto = {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
     };
 
     return response;
