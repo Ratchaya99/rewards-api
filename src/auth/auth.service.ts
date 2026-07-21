@@ -12,6 +12,8 @@ import { JwtService } from '@nestjs/jwt';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { ApiResponseDto } from 'src/common/dto/api-response.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
@@ -167,6 +169,91 @@ export class AuthService {
       code: 200,
       message: 'Logout successfully',
       data: null,
+    };
+
+    return response;
+  }
+
+  async refresh(refreshTokenDto: RefreshTokenDto) {
+    // Verify Refresh Token
+    const payload = await this.jwtService.verifyAsync<JwtPayload>(
+      refreshTokenDto.refreshToken,
+      {
+        secret: process.env.JWT_REFRESH_SECRET!,
+      },
+    );
+
+    // Find User
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: payload.sub,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Compare Refresh Token
+    const isRefreshTokenValid = await bcrypt.compare(
+      refreshTokenDto.refreshToken,
+      user.refreshToken ?? '',
+    );
+
+    if (!isRefreshTokenValid) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Generate Payload
+    const newPayload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.name,
+    };
+
+    // Generate Access Token
+    const accessToken = await this.jwtService.signAsync(newPayload, {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    });
+
+    // Generate Refresh Token
+    const refreshToken = await this.jwtService.signAsync(newPayload, {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '7d',
+    });
+
+    // Hash Refresh Token
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    // Update Refresh Token
+    await this.prismaService.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        refreshToken: hashedRefreshToken,
+      },
+    });
+
+    // Return Response
+    const response: ApiResponseDto<LoginResponseDto> = {
+      status: 'success',
+      code: 200,
+      message: null,
+      data: {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
+      },
     };
 
     return response;
