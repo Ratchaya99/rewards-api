@@ -34,4 +34,11 @@ export class AuthController {
   async getProfile(@CurrentUser() user: JwtPayload) {
     return await this.authService.getProfile(user.sub);
   }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  logout(@CurrentUser() user: JwtPayload) {
+    return this.authService.logout(user.sub);
+  }
 }

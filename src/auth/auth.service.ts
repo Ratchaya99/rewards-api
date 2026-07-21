@@ -151,4 +151,24 @@ export class AuthService {
 
     return response;
   }
+
+  async logout(userId: string) {
+    await this.prismaService.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        refreshToken: null,
+      },
+    });
+
+    const response: ApiResponseDto<null> = {
+      status: 'success',
+      code: 200,
+      message: 'Logout successfully',
+      data: null,
+    };
+
+    return response;
+  }
 }
