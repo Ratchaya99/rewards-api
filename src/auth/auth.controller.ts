@@ -14,6 +14,7 @@ import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -39,6 +40,7 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Logout successfully')
   logout(@CurrentUser() user: JwtPayload) {
     return this.authService.logout(user.sub);
   }
